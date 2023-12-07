@@ -1,0 +1,1 @@
+This classifies any document givien training a test data. This supports both standard Naive Bayes classification and binoimal. You MUST structure your document like the examples.

@@ -1,0 +1,5 @@
+d1,good,good,good,great,great,great,+
+d2,poor,great,great,+
+d3,good,poor,poor,poor,-
+d4,good,poor,poor,poor,poor,poor,great,great,-
+d5,poor,poor,-

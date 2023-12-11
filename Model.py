@@ -70,6 +70,31 @@ class Model:
             return recall
         except:
             return "undf"
+        
+    #Creates dictionary of keys that are class indicators and values that count all instances of the class
+    def populate_class_dict(self, arr, class_dict):
+        for i in range(0, len(arr)):
+            try:
+                class_dict[arr[i]] += 1
+            except:
+                class_dict[arr[i]] = 1
+        return class_dict
+    #Creates dictionary of keys that are arrays and values that are the sum of their len
+    def populate_sum_dict(self, arr, sum_dict):
+        for i in range(0, len(arr)):
+            try:
+                sum_dict[arr[i]] += 1
+            except:
+                sum_dict[arr[i]] = 1
+        return sum_dict
+    
+    def populate_word_dict(self, arr, word_dict):
+        for j in range(0, len(arr)):
+            for i in range(0, len(arr[j]) - 1):
+                try:
+                    word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] += 1
+                except:
+                    word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] = 1
 
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
@@ -107,19 +132,11 @@ class Model:
         training_arr = functools.reduce(operator.iconcat, training_arr, [])
         #count the number of times each sentiment and word shows up
         if self.model_type == 'standard':
-            for i in range(0, len(class_arr)):
-                try:
-                    sentiment_dict[class_arr[i]] += 1
-                    sum_dict[class_arr[i]] += sum_arr[i]
-                except:
-                    sentiment_dict[class_arr[i]] = 1
-                    sum_dict[class_arr[i]] = sum_arr[i]
-            for j in range(0, len(training_arr)):
-                for i in range(0, len(training_arr[j]) - 1):
-                    try:
-                        word_dict[training_arr[j][i] + training_arr[j][len(training_arr[j]) - 1]] += 1
-                    except:
-                        word_dict[training_arr[j][i] + training_arr[j][len(training_arr[j]) - 1]] = 1      
+
+            sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
+            sum_dict = self.populate_sum_dict(class_arr, sum_dict)
+            word_dict = self.populate_word_dict(training_arr, word_dict)
+                 
             vocab = len(list(word_dict.keys()))//2
             #add the total to each dictionary
             sentiment_dict['total'] = len(class_arr)
@@ -146,21 +163,12 @@ class Model:
                 if j not in range(self.dev_num_low, self.dev_num_high):
                     count_arr.append(training_arr[j][len(training_arr[j]) - 1])
                     binomial_arr.append(count_arr)
+
             training_arr = binomial_arr
-            #count the number of times each sentiment and word shows up
-            for i in range(0, len(class_arr)):
-                try:
-                    sentiment_dict[class_arr[i]] += 1
-                    sum_dict[class_arr[i]] += sum_arr[i]
-                except:
-                    sentiment_dict[class_arr[i]] = 1
-                    sum_dict[class_arr[i]] = sum_arr[i]
-            for j in range(0, len(training_arr)):
-                for i in range(0, len(training_arr[j]) - 1):
-                    try:
-                        word_dict[training_arr[j][i] + training_arr[j][len(training_arr[j]) - 1]] += 1
-                    except:
-                        word_dict[training_arr[j][i] + training_arr[j][len(training_arr[j]) - 1]] = 1      
+            sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
+            sum_dict = self.populate_sum_dict(class_arr, sum_dict)
+            word_dict = self.populate_word_dict(training_arr, word_dict) 
+
             vocab = len(list(word_dict.keys()))//2
             #add the total to each dictionary
             sentiment_dict['total'] = len(class_arr)
@@ -352,4 +360,5 @@ class Model:
 
         return log_probs
 
-
+model1 = Model()
+model1.preprocessing()

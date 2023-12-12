@@ -109,9 +109,6 @@ class Model:
                     else:
                         tracking_arr.append(arr[j][i])
         return tracking_arr
-
-                
-
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
         csv_for_training = open(self.training_csv, 'r')
@@ -187,11 +184,8 @@ class Model:
         preprocessed = self.preprocessing()
         sentiment_dict = preprocessed[0]
         word_dict = preprocessed[1]
-        print(word_dict)
         vocab_size = preprocessed[2]
-        print(vocab_size)
         sum_dict = preprocessed[3]
-        print(sum_dict)
         sentiments = list(preprocessed[0].keys())
         sentiment_counts = list(preprocessed[0].values())
         words = list(preprocessed[1].keys())

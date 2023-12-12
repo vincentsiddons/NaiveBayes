@@ -82,20 +82,35 @@ class Model:
     #Creates dictionary of keys that are arrays and values that are the sum of their len
     def populate_sum_dict(self, arr, sum_dict):
         for i in range(0, len(arr)):
-            try:
-                sum_dict[arr[i][len(arr[i]) - 1]] += len(arr[i]) - 1
-            except:
-                sum_dict[arr[i][len(arr[i]) - 1]] = len(arr[i]) - 1
+            if i not in range(self.dev_num_low, self.dev_num_high):
+                try:
+                    sum_dict[arr[i][len(arr[i]) - 1]] += len(arr[i]) - 1
+                except:
+                    sum_dict[arr[i][len(arr[i]) - 1]] = len(arr[i]) - 1
         return sum_dict
-    
+    #Counts each instance of a word in its respective class
     def populate_word_dict(self, arr, word_dict):
         for j in range(0, len(arr)):
             for i in range(0, len(arr[j]) - 1):
-                try:
-                    word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] += 1
-                except:
-                    word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] = 1
+                if j not in range(self.dev_num_low, self.dev_num_high):
+                    try:
+                        word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] += 1
+                    except:
+                        word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] = 1
         return word_dict
+    #Calculates the size of the vocabulary
+    def calculate_vocab(self, arr):
+        tracking_arr = []
+        for j in range(0, len(arr)):
+            for i in range(0, len(arr[j]) - 1):
+                if j not in range(self.dev_num_low, self.dev_num_high):
+                    if Model.check_arr(tracking_arr, (arr[j][i])) == True:
+                            i += 1
+                    else:
+                        tracking_arr.append(arr[j][i])
+        return tracking_arr
+
+                
 
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
@@ -131,27 +146,7 @@ class Model:
                     training_arr[j][i] = training_arr[j][i].split(',')
         #3D to 2D training array
         training_arr = functools.reduce(operator.iconcat, training_arr, [])
-        #count the number of times each sentiment and word shows up
-        if self.model_type == 'standard':
-            #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
-            sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
-            sum_dict = self.populate_sum_dict(training_arr, sum_dict)
-            word_dict = self.populate_word_dict(training_arr, word_dict)
-            #calculates the size of the vocabulary
-            vocab = len(list(word_dict.keys()))//len(list(sentiment_dict.keys()))
-            #add the total to each dictionary
-            sentiment_dict['total'] = len(class_arr)
-            values = list(word_dict.values())
-            #Calculates the total number of words in both classes
-            sum = 0
-            for i in range(0, len(values)):
-                sum += values[i]
-            sentiment_keys = list(sentiment_dict.keys())
-            #deals with word we know in an unexpected class
-            for i in range(0, len(sentiment_keys) - 1):
-                word_dict['UNEXP' + sentiment_keys[i]] = 1
-            word_dict['total'] = sum
-        elif self.model_type == 'binomial':
+        if self.model_type == 'binomial':
             #count if in each doc a word shows up
             binomial_arr = []
             for j in range(0, len(training_arr)):
@@ -165,24 +160,26 @@ class Model:
                 if j not in range(self.dev_num_low, self.dev_num_high):
                     count_arr.append(training_arr[j][len(training_arr[j]) - 1])
                     binomial_arr.append(count_arr)
-            #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
-            sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
-            sum_dict = self.populate_sum_dict(training_arr, sum_dict)
-            word_dict = self.populate_word_dict(binomial_arr, word_dict) 
-            #calculates the size of the vocabulary
-            vocab = len(list(word_dict.keys()))//len(list(sentiment_dict.keys()))
-            #add the total to each dictionary
-            sentiment_dict['total'] = len(class_arr)
-            values = list(word_dict.values())
-            #calculates the total number of words in both classes
-            sum = 0
-            for i in range(0, len(values)):
-                sum += values[i]
-            sentiment_keys = list(sentiment_dict.keys())
-            #deals with word we know in an unexpected class
-            for i in range(0, len(sentiment_keys) - 1):
-                word_dict['UNEXP' + sentiment_keys[i]] = 1
-            word_dict['total'] = sum     
+            word_dict = self.populate_word_dict(binomial_arr, word_dict)
+        #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
+        sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
+        sum_dict = self.populate_sum_dict(training_arr, sum_dict)
+        if self.model_type == "standard":
+            word_dict = self.populate_word_dict(training_arr, word_dict) 
+        #add the total to each dictionary
+        sentiment_dict['total'] = len(class_arr)
+        values = list(word_dict.values())
+        #calculates the total number of words in both classes
+        sum = 0
+        for i in range(0, len(values)):
+            sum += values[i]
+        sentiment_keys = list(sentiment_dict.keys())
+        #deals with word we know in an unexpected class
+        for i in range(0, len(sentiment_keys) - 1):
+            word_dict['UNEXP' + sentiment_keys[i]] = 1
+        word_dict['total'] = sum    
+         #calculates the size of the vocabulary
+        vocab = len(self.calculate_vocab(training_arr))
         return sentiment_dict, word_dict, vocab, sum_dict
     
     #Calculates priors and probs.
@@ -190,8 +187,11 @@ class Model:
         preprocessed = self.preprocessing()
         sentiment_dict = preprocessed[0]
         word_dict = preprocessed[1]
+        print(word_dict)
         vocab_size = preprocessed[2]
+        print(vocab_size)
         sum_dict = preprocessed[3]
+        print(sum_dict)
         sentiments = list(preprocessed[0].keys())
         sentiment_counts = list(preprocessed[0].values())
         words = list(preprocessed[1].keys())
@@ -363,8 +363,3 @@ class Model:
             log_probs[j] = max_val
 
         return log_probs
-
-model1 = Model()
-model2 = Model("binomial")
-
-print(model2.train())

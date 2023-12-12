@@ -83,9 +83,9 @@ class Model:
     def populate_sum_dict(self, arr, sum_dict):
         for i in range(0, len(arr)):
             try:
-                sum_dict[arr[i]] += 1
+                sum_dict[arr[i][len(arr[i]) - 1]] += len(arr[i]) - 1
             except:
-                sum_dict[arr[i]] = 1
+                sum_dict[arr[i][len(arr[i]) - 1]] = len(arr[i]) - 1
         return sum_dict
     
     def populate_word_dict(self, arr, word_dict):
@@ -95,6 +95,7 @@ class Model:
                     word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] += 1
                 except:
                     word_dict[arr[j][i] + arr[j][len(arr[j]) - 1]] = 1
+        return word_dict
 
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
@@ -132,16 +133,16 @@ class Model:
         training_arr = functools.reduce(operator.iconcat, training_arr, [])
         #count the number of times each sentiment and word shows up
         if self.model_type == 'standard':
-
+            #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
             sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
-            sum_dict = self.populate_sum_dict(class_arr, sum_dict)
+            sum_dict = self.populate_sum_dict(training_arr, sum_dict)
             word_dict = self.populate_word_dict(training_arr, word_dict)
-                 
-            vocab = len(list(word_dict.keys()))//2
+            #calculates the size of the vocabulary
+            vocab = len(list(word_dict.keys()))//len(list(sentiment_dict.keys()))
             #add the total to each dictionary
             sentiment_dict['total'] = len(class_arr)
             values = list(word_dict.values())
-            #not correct, needs to be class sum
+            #Calculates the total number of words in both classes
             sum = 0
             for i in range(0, len(values)):
                 sum += values[i]
@@ -151,6 +152,7 @@ class Model:
                 word_dict['UNEXP' + sentiment_keys[i]] = 1
             word_dict['total'] = sum
         elif self.model_type == 'binomial':
+            #count if in each doc a word shows up
             binomial_arr = []
             for j in range(0, len(training_arr)):
                 count_arr = []
@@ -163,17 +165,16 @@ class Model:
                 if j not in range(self.dev_num_low, self.dev_num_high):
                     count_arr.append(training_arr[j][len(training_arr[j]) - 1])
                     binomial_arr.append(count_arr)
-
-            training_arr = binomial_arr
+            #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
             sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
-            sum_dict = self.populate_sum_dict(class_arr, sum_dict)
-            word_dict = self.populate_word_dict(training_arr, word_dict) 
-
-            vocab = len(list(word_dict.keys()))//2
+            sum_dict = self.populate_sum_dict(training_arr, sum_dict)
+            word_dict = self.populate_word_dict(binomial_arr, word_dict) 
+            #calculates the size of the vocabulary
+            vocab = len(list(word_dict.keys()))//len(list(sentiment_dict.keys()))
             #add the total to each dictionary
             sentiment_dict['total'] = len(class_arr)
             values = list(word_dict.values())
-            #not correct, needs to be class sum
+            #calculates the total number of words in both classes
             sum = 0
             for i in range(0, len(values)):
                 sum += values[i]
@@ -205,6 +206,9 @@ class Model:
                     #laplace smoothing
                     if words[i][len(words[i]) - 1:] == sentiments[j]:
                         word_dict[words[i]] = (word_counts[i] + 1)/(sum_dict[sentiments[j]] + vocab_size)
+        else:
+            print("You need to either make your model type standard or binomial.")
+            return
         return sentiment_dict, word_dict
     
     #Finds out which model is best based on F1 scores
@@ -361,4 +365,6 @@ class Model:
         return log_probs
 
 model1 = Model()
-model1.preprocessing()
+model2 = Model("binomial")
+
+print(model2.train())

@@ -109,6 +109,18 @@ class Model:
                     else:
                         tracking_arr.append(arr[j][i])
         return tracking_arr
+    #Calculates prior probs for each class and cleans sentence array
+    def calculate_priors(self, arr, dict):
+        priors = []
+        dict_keys = list(dict.keys())
+        sentences = arr[self.dev_num_low:self.dev_num_high]
+        for i in range(0, len(sentences)):
+            sentences[i] = sentences[i][3:len(sentences[i]) - 1]
+            for i in range(0, len(dict_keys) - 1):
+                priors.append(math.log10(dict[dict_keys[i]]))
+        for i in range(0, len(sentences)):
+            sentences[i] = sentences[i].split(',')
+        return priors, sentences
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
         csv_for_training = open(self.training_csv, 'r')
@@ -216,22 +228,12 @@ class Model:
         binomial_lines = open(model2.training_csv, 'r').readlines()
 
         #Clean sentences and calculate priors for each
-        standard_sentences = standard_lines[model1.dev_num_low:model1.dev_num_high]
-        for i in range(0, len(standard_sentences)):
-            standard_sentences[i] = standard_sentences[i][3:len(standard_sentences[i]) - 1]
-            for key in standard[0]:
-                standard_priors.append(math.log10(standard[0][key]))
-        binomial_sentences = binomial_lines[model2.dev_num_low:model2.dev_num_high]
-        for i in range(0, len(binomial_sentences)):
-            binomial_sentences[i] = binomial_sentences[i][3:len(binomial_sentences[i]) - 1]
-            for key in binomial[0]:
-                binomial_priors.append(math.log10(binomial[0][key]))
-
-        #Split each sentence into an array for processing
-        for i in range(0, len(standard_sentences)):
-            standard_sentences[i] = standard_sentences[i].split(',')
-        for i in range(0, len(binomial_sentences)):
-            binomial_sentences[i] = binomial_sentences[i].split(',')
+        standard_clean =  model1.calculate_priors(standard_lines, standard[0])
+        binomial_clean = model2.calculate_priors(binomial_lines, binomial[0])
+        standard_priors = standard_clean[0]
+        binomial_priors = binomial_clean[0]
+        standard_sentences = standard_clean[1]
+        binomial_sentences = binomial_clean[1]
         
         #Calculate log probs for each word in a sentence
         #TO DO: Make this itself a function
@@ -244,15 +246,15 @@ class Model:
             for k in range(0, len(sentiment_keys) - 1):
                 log_prob = 0
                 for i in range(0, len(standard_sentences[j]) - 1):
-                #TO DO: Go through words dictionary, if match, log_probs[i] = math.log10(standard[1][key]),
-                #elif at 'total' log_probs[i] = math.log10(standard[1]['UNEXP'+standard_sentences[j][len(standard_sentences[j]) - 1])])
+                    #TO DO: Go through words dictionary, if match, log_probs[i] = math.log10(standard[1][key]),
+                    #elif at 'total' log_probs[i] = math.log10(standard[1]['UNEXP'+standard_sentences[j][len(standard_sentences[j]) - 1])])
                     for l in range(0, len(word_keys)):
                         #PROBLEM: no excpetions for those words in the wrong class
                         if standard_sentences[j][i] + sentiment_keys[k] == word_keys[l]:
                             log_prob += math.log10(standard[1][word_keys[l]])
                             break
                         elif word_keys[l] == 'total':
-                            log_prob += math.log10(standard[1]['UNEXP'])
+                            log_prob += math.log10(standard[1]['UNEXP' + sentiment_keys[k]])
                 log_probs_list[k] = str(standard_priors[k] + log_prob) + sentiment_keys[k]
             log_probs_standard.append(log_probs_list)
 
@@ -266,10 +268,10 @@ class Model:
                             log_prob += math.log10(binomial[1][word_keys[l]])
                             break
                         elif word_keys[l] == 'total':
-                            log_prob += math.log10(binomial[1]['UNEXP'])
-                log_probs_list[k] = str(standard_priors[k] + log_prob) + sentiment_keys[k]
+                            log_prob += math.log10(binomial[1]['UNEXP' + sentiment_keys[k]])
+                log_probs_list[k] = str(binomial_priors[k] + log_prob) + sentiment_keys[k]
             log_probs_binomial.append(log_probs_list)
-        
+
         #Assigns class to each based on their scores
         for j in range(0, len(log_probs_standard)):
             max = -2147483648
@@ -357,3 +359,8 @@ class Model:
             log_probs[j] = max_val
 
         return log_probs
+
+model1 = Model()
+model2 = Model("binomial")
+
+print(Model.dev(model1, model2))

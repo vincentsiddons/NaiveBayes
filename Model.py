@@ -109,7 +109,7 @@ class Model:
                     else:
                         tracking_arr.append(arr[j][i])
         return tracking_arr
-    #Calculates prior probs for each class and cleans sentence array
+    #Calculates prior probs for each class and cleans sentence array, for the dev set
     def calculate_priors(self, arr, dict):
         priors = []
         dict_keys = list(dict.keys())
@@ -309,6 +309,7 @@ class Model:
             except:
                 return "binomial"
     
+    #Finds the class of the test set
     def test(self):
         model = self.train()
         priors = []
@@ -324,39 +325,11 @@ class Model:
         #Split each sentence into an array for processing
         for i in range(0, len(sentences)):
             sentences[i] = sentences[i].split(',')
+
         #Calculate log probs for each word in a sentence
-        #TO DO: Make this itself a function
-        log_probs= []
-        word_keys = list(model[1].keys())
-        sentiment_keys = list(model[0].keys())
-        for j in range(0, len(sentences)):
-            log_probs_list = list(range(len(sentiment_keys) - 1))
-            for k in range(0, len(sentiment_keys) - 1):
-                log_prob = 0
-                for i in range(0, len(sentences[j]) - 1):
-                #TO DO: Go through words dictionary, if match, log_probs[i] = math.log10(standard[1][key]),
-                #elif at 'total' log_probs[i] = math.log10(standard[1]['UNEXP'+standard_sentences[j][len(standard_sentences[j]) - 1])])
-                    for l in range(0, len(word_keys)):
-                        #PROBLEM: no excpetions for those words in the wrong class
-                        if sentences[j][i] + sentiment_keys[k] == word_keys[l]:
-                            log_prob += math.log10(model[1][word_keys[l]])
-                            break
-                log_probs_list[k] = str(priors[k] + log_prob) + sentiment_keys[k]
-            log_probs.append(log_probs_list)
-        
+        log_probs = self.calculate_probs(priors, sentences, model[1], model[0])
+
         #Assigns class to each based on their scores
-        for j in range(0, len(log_probs)):
-            max = -2147483648
-            max_val = ''
-            for i in range(0, len(log_probs[j])):
-                if float(log_probs[j][i][:len(log_probs[j][i]) - 1]) > max:
-                    max = float(log_probs[j][i][:len(log_probs[j][i]) - 1])
-                    max_val = log_probs[j][i][len(log_probs[j][i]) - 1:len(log_probs[j][i])]
-            log_probs[j] = max_val
+        log_probs = self.assign_class(log_probs)
 
         return log_probs
-
-model1 = Model()
-model2 = Model("binomial")
-
-print(Model.dev(model1, model2))

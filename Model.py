@@ -122,6 +122,7 @@ class Model:
             sentences[i] = sentences[i].split(',')
         return priors, sentences
     
+    #calculates the log probability for each class for each document
     def calculate_probs(self, prior, arr, word_dict, class_dict):
         log_probs = []
         word_keys = list(word_dict.keys())
@@ -140,6 +141,18 @@ class Model:
                 log_probs_list[k] = str(prior[k] + log_prob) + sentiment_keys[k]
             log_probs.append(log_probs_list)
         return log_probs
+    
+    #assigns a class based on which -log(prob) is larger
+    def assign_class(self, class_arr):
+        for j in range(0, len(class_arr)):
+            max = -2147483648
+            max_val = ''
+            for i in range(0, len(class_arr[j])):
+                if float(class_arr[j][i][:len(class_arr[j][i]) - 1]) > max:
+                    max = float(class_arr[j][i][:len(class_arr[j][i]) - 1])
+                    max_val = class_arr[j][i][len(class_arr[j][i]) - 1:len(class_arr[j][i])]
+            class_arr[j] = max_val
+        return class_arr
 
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
@@ -150,12 +163,14 @@ class Model:
         class_arr = []
         sum_arr = []
         vocab = 0
+
         #Create an array for each line
         training_arr = []
         for line in csv_for_training:
             arr = []
             arr.append(line)
             training_arr.append(arr)
+
         #create an array of only words, exclude dev sentences
         for j in range(0, len(training_arr)):
             for i in range(0, len(training_arr[j])):
@@ -173,6 +188,7 @@ class Model:
                 elif j in range(self.dev_num_low, self.dev_num_high):
                     training_arr[j][i] = training_arr[j][i][3:len(training_arr[j][i]) - 1]
                     training_arr[j][i] = training_arr[j][i].split(',')
+
         #3D to 2D training array
         training_arr = functools.reduce(operator.iconcat, training_arr, [])
         if self.model_type == 'binomial':
@@ -190,23 +206,28 @@ class Model:
                     count_arr.append(training_arr[j][len(training_arr[j]) - 1])
                     binomial_arr.append(count_arr)
             word_dict = self.populate_word_dict(binomial_arr, word_dict)
+
         #creates dictionaries of each class, each word in each arrays sum, and each word with its corresponding class
         sentiment_dict = self.populate_class_dict(class_arr, sentiment_dict)
         sum_dict = self.populate_sum_dict(training_arr, sum_dict)
         if self.model_type == "standard":
             word_dict = self.populate_word_dict(training_arr, word_dict) 
+
         #add the total to each dictionary
         sentiment_dict['total'] = len(class_arr)
         values = list(word_dict.values())
+
         #calculates the total number of words in both classes
         sum = 0
         for i in range(0, len(values)):
             sum += values[i]
         sentiment_keys = list(sentiment_dict.keys())
+
         #deals with word we know in an unexpected class
         for i in range(0, len(sentiment_keys) - 1):
             word_dict['UNEXP' + sentiment_keys[i]] = 1
         word_dict['total'] = sum    
+
          #calculates the size of the vocabulary
         vocab = len(self.calculate_vocab(training_arr))
         return sentiment_dict, word_dict, vocab, sum_dict
@@ -222,6 +243,7 @@ class Model:
         sentiment_counts = list(preprocessed[0].values())
         words = list(preprocessed[1].keys())
         word_counts = list(preprocessed[1].values())
+
         if self.model_type == 'standard' or self.model_type == 'binomial':
             #Calculates priors for all classes
             for i in range(0, len(sentiments) - 1):
@@ -229,7 +251,7 @@ class Model:
             #Calculates probabilities for all classes
             for i in range(0, len(words) - 1):
                 for j in range(0, len(sentiments) - 1):
-                    #laplace smoothing
+                    #laplace smoothing for each prob
                     if words[i][len(words[i]) - 1:] == sentiments[j]:
                         word_dict[words[i]] = (word_counts[i] + 1)/(sum_dict[sentiments[j]] + vocab_size)
         else:
@@ -260,23 +282,8 @@ class Model:
         log_probs_binomial = model2.calculate_probs(binomial_priors, binomial_sentences, binomial[1], binomial[0])
        
         #Assigns class to each based on their scores
-        for j in range(0, len(log_probs_standard)):
-            max = -2147483648
-            max_val = ''
-            for i in range(0, len(log_probs_standard[j])):
-                if float(log_probs_standard[j][i][:len(log_probs_standard[j][i]) - 1]) > max:
-                    max = float(log_probs_standard[j][i][:len(log_probs_standard[j][i]) - 1])
-                    max_val = log_probs_standard[j][i][len(log_probs_standard[j][i]) - 1:len(log_probs_standard[j][i])]
-            log_probs_standard[j] = max_val
-
-        for j in range(0, len(log_probs_binomial)):
-            max = -2147483648
-            max_val = ''
-            for i in range(0, len(log_probs_binomial[j])):
-                if float(log_probs_binomial[j][i][:len(log_probs_binomial[j][i]) - 1]) > max:
-                    max = float(log_probs_binomial[j][i][:len(log_probs_binomial[j][i]) - 1])
-                    max_val = log_probs_binomial[j][i][len(log_probs_binomial[j][i]) - 1:len(log_probs_binomial[j][i])]
-            log_probs_binomial[j] = max_val
+        log_probs_standard = model1.assign_class(log_probs_standard)
+        log_probs_binomial = model2.assign_class(log_probs_binomial)
 
         sentiment_keys = list(standard[0].keys())
 

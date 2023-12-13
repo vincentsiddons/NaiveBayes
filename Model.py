@@ -121,6 +121,26 @@ class Model:
         for i in range(0, len(sentences)):
             sentences[i] = sentences[i].split(',')
         return priors, sentences
+    
+    def calculate_probs(self, prior, arr, word_dict, class_dict):
+        log_probs = []
+        word_keys = list(word_dict.keys())
+        sentiment_keys = list(class_dict.keys())
+        for j in range(0, len(arr)):
+            log_probs_list = list(range(len(sentiment_keys) - 1))
+            for k in range(0, len(sentiment_keys) - 1):
+                log_prob = 0
+                for i in range(0, len(arr[j]) - 1):
+                    for l in range(0, len(word_keys)):
+                        if arr[j][i] + sentiment_keys[k] == word_keys[l]:
+                            log_prob += math.log10(word_dict[word_keys[l]])
+                            break
+                        elif word_keys[l] == 'total':
+                            log_prob += math.log10(word_dict['UNEXP' + sentiment_keys[k]])
+                log_probs_list[k] = str(prior[k] + log_prob) + sentiment_keys[k]
+            log_probs.append(log_probs_list)
+        return log_probs
+
     #returns priors for each class and each line of the traning set, cleaned
     def preprocessing(self):
         csv_for_training = open(self.training_csv, 'r')
@@ -236,42 +256,9 @@ class Model:
         binomial_sentences = binomial_clean[1]
         
         #Calculate log probs for each word in a sentence
-        #TO DO: Make this itself a function
-        log_probs_standard = []
-        log_probs_binomial = []
-        word_keys = list(standard[1].keys())
-        sentiment_keys = list(standard[0].keys())
-        for j in range(0, len(standard_sentences)):
-            log_probs_list = list(range(len(sentiment_keys) - 1))
-            for k in range(0, len(sentiment_keys) - 1):
-                log_prob = 0
-                for i in range(0, len(standard_sentences[j]) - 1):
-                    #TO DO: Go through words dictionary, if match, log_probs[i] = math.log10(standard[1][key]),
-                    #elif at 'total' log_probs[i] = math.log10(standard[1]['UNEXP'+standard_sentences[j][len(standard_sentences[j]) - 1])])
-                    for l in range(0, len(word_keys)):
-                        #PROBLEM: no excpetions for those words in the wrong class
-                        if standard_sentences[j][i] + sentiment_keys[k] == word_keys[l]:
-                            log_prob += math.log10(standard[1][word_keys[l]])
-                            break
-                        elif word_keys[l] == 'total':
-                            log_prob += math.log10(standard[1]['UNEXP' + sentiment_keys[k]])
-                log_probs_list[k] = str(standard_priors[k] + log_prob) + sentiment_keys[k]
-            log_probs_standard.append(log_probs_list)
-
-        for j in range(0, len(binomial_sentences)):
-            log_probs_list = list(range(len(sentiment_keys) - 1))
-            for k in range(0, len(sentiment_keys) - 1):
-                log_prob = 0
-                for i in range(0, len(binomial_sentences[j]) - 1):
-                    for l in range(0, len(word_keys)):
-                        if binomial_sentences[j][i] + sentiment_keys[k] == word_keys[l]:
-                            log_prob += math.log10(binomial[1][word_keys[l]])
-                            break
-                        elif word_keys[l] == 'total':
-                            log_prob += math.log10(binomial[1]['UNEXP' + sentiment_keys[k]])
-                log_probs_list[k] = str(binomial_priors[k] + log_prob) + sentiment_keys[k]
-            log_probs_binomial.append(log_probs_list)
-
+        log_probs_standard = model1.calculate_probs(standard_priors, standard_sentences, standard[1], standard[0])
+        log_probs_binomial = model2.calculate_probs(binomial_priors, binomial_sentences, binomial[1], binomial[0])
+       
         #Assigns class to each based on their scores
         for j in range(0, len(log_probs_standard)):
             max = -2147483648
@@ -290,6 +277,8 @@ class Model:
                     max = float(log_probs_binomial[j][i][:len(log_probs_binomial[j][i]) - 1])
                     max_val = log_probs_binomial[j][i][len(log_probs_binomial[j][i]) - 1:len(log_probs_binomial[j][i])]
             log_probs_binomial[j] = max_val
+
+        sentiment_keys = list(standard[0].keys())
 
         #if data has more than two classes, return the dev classes
         if len(sentiment_keys) > 3:
